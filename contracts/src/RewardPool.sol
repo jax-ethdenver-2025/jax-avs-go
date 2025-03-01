@@ -17,6 +17,8 @@ struct Signature {
 contract RewardPool is Ownable, Initializable {
     IIncredibleSquaringTaskManager public avs;
 
+    mapping(string => address) public nodeIdToBeneficiary;
+
     // Add storage for pool metadata
     bytes32 public contentHash;
 
@@ -54,11 +56,13 @@ contract RewardPool is Ownable, Initializable {
     /* state changing functions */
 
     // TODO: fix this / diagnose why we revert against rust bindings
-    function enterPool(string memory nodeId, Signature memory signature) external {
+    function enterPool(string memory nodeId, bytes32 k, bytes32 r, bytes32 s, address beneficiary) external {
+        nodeIdToBeneficiary[nodeId] = beneficiary;
+        bytes memory m = abi.encodePacked(beneficiary);
+
         require(!peers[nodeId], "Peer already in pool");
         require(bytes(nodeId).length > 0, "Invalid node ID");
-        // TODO: add signature verification again
-        // require(verify(signature.k, signature.r, signature.s, signature.m), "Invalid signature");
+        require(verify(k, r, s, m), "Invalid signature");
         peers[nodeId] = true;
         peerList.push(nodeId);
         emit PeerAdded(nodeId);
@@ -86,7 +90,7 @@ contract RewardPool is Ownable, Initializable {
         require(contractBalance > 0, "No funds to distribute");
 
         for (uint256 i = 0; i < nodeLength; i++) {
-            address recipient = address(this); // todo: beneficiary address
+            address recipient = nodeIdToBeneficiary[nodeIds[i]];
             require(recipient != address(0), "Recipient address not set");
 
             uint256 amount = (contractBalance * scores[i]) / 10000;
