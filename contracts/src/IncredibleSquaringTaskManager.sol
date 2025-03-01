@@ -290,7 +290,13 @@ contract IncredibleSquaringTaskManager is
     }
 
     function getTaskResponse(uint32 taskIndex) external view returns (TaskResponse memory taskResponse) {
-        taskResponse = TaskResponse(taskResponse.referenceTaskIndex, taskResponse.providers, taskResponse.scores);
+        bytes32 taskResponseBytes = allTaskResponses[taskIndex];
+        require(taskResponseBytes != bytes32(0), "Task response does not exist");
+
+        (taskResponse.referenceTaskIndex, taskResponse.providers, taskResponse.scores) = abi.decode(
+            taskResponseBytes,
+            (uint32, address[], uint256[])
+        );
     }
 
     function _setGenerator(address newGenerator) internal {
