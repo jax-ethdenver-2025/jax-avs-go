@@ -21,7 +21,7 @@ contract RewardPool is Ownable, Initializable {
     bytes32 public contentHash;
 
     // mapping from peer id to wallet address that receives rewards
-    mapping(string => address) public beneficiary;
+    mapping(string => bool) public peers;
     string[] public peerList;
 
     event PeerAdded(string indexed nodeId);
@@ -54,12 +54,12 @@ contract RewardPool is Ownable, Initializable {
     /* state changing functions */
 
     // TODO: fix this / diagnose why we revert against rust bindings
-    function enterPool(string memory nodeId, address _beneficiary, Signature memory signature) external {
-        require(beneficiary[nodeId] == address(0), "Peer already in pool");
+    function enterPool(string memory nodeId, Signature memory signature) external {
+        require(!peers[nodeId], "Peer already in pool");
         require(bytes(nodeId).length > 0, "Invalid node ID");
         // TODO: add signature verification again
         // require(verify(signature.k, signature.r, signature.s, signature.m), "Invalid signature");
-        beneficiary[nodeId] = _beneficiary;
+        peers[nodeId] = true;
         peerList.push(nodeId);
         emit PeerAdded(nodeId);
     }
@@ -86,7 +86,7 @@ contract RewardPool is Ownable, Initializable {
         require(contractBalance > 0, "No funds to distribute");
 
         for (uint256 i = 0; i < nodeLength; i++) {
-            address recipient = beneficiary[nodeIds[i]];
+            address recipient = address(this); // todo: beneficiary address
             require(recipient != address(0), "Recipient address not set");
 
             uint256 amount = (contractBalance * scores[i]) / 10000;
