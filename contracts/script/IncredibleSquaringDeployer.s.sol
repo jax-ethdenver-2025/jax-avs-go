@@ -22,7 +22,6 @@ import {IncredibleSquaringServiceManager, IServiceManager} from "../src/Incredib
 import {IncredibleSquaringTaskManager} from "../src/IncredibleSquaringTaskManager.sol";
 import {IIncredibleSquaringTaskManager} from "../src/IIncredibleSquaringTaskManager.sol";
 import "../src/ERC20Mock.sol";
-import {RewardPool} from "../src/RewardPool.sol";
 
 import {Utils} from "./utils/Utils.sol";
 
@@ -70,8 +69,6 @@ contract IncredibleSquaringDeployer is Script, Utils {
 
     IncredibleSquaringTaskManager public incredibleSquaringTaskManager;
     IIncredibleSquaringTaskManager public incredibleSquaringTaskManagerImplementation;
-
-    RewardPool public rewardPool;
 
     function run() external {
         // Eigenlayer contracts
@@ -127,8 +124,6 @@ contract IncredibleSquaringDeployer is Script, Utils {
         }
 
         EmptyContract emptyContract = new EmptyContract();
-
-        rewardPool = new RewardPool();
 
         // hard-coded inputs
 
@@ -256,7 +251,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 incredibleSquaringCommunityMultisig,
                 AGGREGATOR_ADDR,
                 TASK_GENERATOR_ADDR,
-                address(rewardPool)
+                0xbF2B4973D67a81480AD042936845c655188a0e3d // RewardPool address
             )
         );
 

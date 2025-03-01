@@ -54,7 +54,7 @@ interface IIncredibleSquaringTaskManager {
 
     // FUNCTIONS
     // NOTE: this function creates a new task.
-    function createNewTask(bytes32 fileHash, uint32 quorumThresholdPercentage, bytes calldata quorumNumbers) external;
+    function createNewTask(uint32 quorumThresholdPercentage, bytes calldata quorumNumbers) external;
 
     /// @notice Returns the current 'taskNumber' for the middleware
     function taskNumber() external view returns (uint32);

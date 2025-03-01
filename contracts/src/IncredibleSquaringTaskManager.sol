@@ -55,15 +55,11 @@ contract IncredibleSquaringTaskManager is
     // Add mapping for hash tracking
     mapping(bytes32 => bool) public usedHashes;
 
+    // queueing fileHashes because the aggregator needs to trigger them
+    bytes32 queuedFileHash;
+
     modifier onlyAggregator() {
         require(msg.sender == aggregator, "Aggregator must be the caller");
-        _;
-    }
-
-    // onlyTaskGenerator is used to restrict createNewTask from only being called by a permissioned entity
-    // in a real world scenario, this would be removed by instead making createNewTask a payable function
-    modifier onlyTaskGenerator() {
-        require(msg.sender == generator, "Task generator must be the caller");
         _;
     }
 
@@ -95,15 +91,16 @@ contract IncredibleSquaringTaskManager is
         _setAggregator(newAggregator);
     }
 
+    function queueFileHash(bytes32 fileHash) public {
+        queuedFileHash = fileHash;
+    }
+
     /* FUNCTIONS */
     // NOTE: this function creates new task, assigns it a taskId
-    function createNewTask(bytes32 fileHash, uint32 quorumThresholdPercentage, bytes calldata quorumNumbers)
-        external
-        onlyTaskGenerator
-    {
+    function createNewTask(uint32 quorumThresholdPercentage, bytes calldata quorumNumbers) external {
         // create a new task struct
         Task memory newTask;
-        newTask.fileHash = fileHash;
+        newTask.fileHash = queuedFileHash;
         newTask.taskCreatedBlock = uint32(block.number);
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
@@ -164,6 +161,8 @@ contract IncredibleSquaringTaskManager is
 
         // emitting event
         emit TaskResponded(taskResponse, taskResponseMetadata);
+
+        delete queuedFileHash;
     }
 
     function taskNumber() external view returns (uint32) {

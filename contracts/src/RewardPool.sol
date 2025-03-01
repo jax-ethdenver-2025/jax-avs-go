@@ -91,7 +91,7 @@ contract RewardPool is Ownable, Initializable {
 
         for (uint256 i = 0; i < nodeLength; i++) {
             address recipient = nodeIdToBeneficiary[nodeIds[i]];
-            require(recipient != address(0), "Recipient address not set");
+            if (recipient == address(0)) continue;
 
             uint256 amount = (contractBalance * scores[i]) / 10000;
             if (amount > 0) {
