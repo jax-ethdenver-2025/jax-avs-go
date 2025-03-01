@@ -13,6 +13,7 @@ remappings = [
     "@openzeppelin-upgrades/=lib/eigenlayer-middleware/lib/eigenlayer-contracts/lib/openzeppelin-contracts-upgradeable/",
     "forge-std/=lib/forge-std/src/",
     "ds-test/=lib/forge-std/lib/ds-test/src/",
+    "solady/=lib/solady/src/"
 ]
 
 gas_reports = ["*"]

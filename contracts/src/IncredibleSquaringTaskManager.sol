@@ -11,6 +11,8 @@ import {BLSSignatureChecker, IRegistryCoordinator} from "@eigenlayer-middleware/
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
 import "@eigenlayer-middleware/src/libraries/BN254.sol";
 import "./IIncredibleSquaringTaskManager.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
+import {IRewardPool} from "./interfaces/IRewardPool.sol";
 
 contract IncredibleSquaringTaskManager is
     Initializable,
@@ -46,6 +48,13 @@ contract IncredibleSquaringTaskManager is
     address public aggregator;
     address public generator;
 
+    address public poolImplementation;
+    // Add storage for pools
+    address[] public pools;
+    mapping(address => bool) public isPool;
+    // Add mapping for hash tracking
+    mapping(bytes32 => bool) public usedHashes;
+
     modifier onlyAggregator() {
         require(msg.sender == aggregator, "Aggregator must be the caller");
         _;
@@ -64,14 +73,18 @@ contract IncredibleSquaringTaskManager is
         TASK_RESPONSE_WINDOW_BLOCK = _taskResponseWindowBlock;
     }
 
-    function initialize(IPauserRegistry _pauserRegistry, address initialOwner, address _aggregator, address _generator)
-        public
-        initializer
-    {
+    function initialize(
+        IPauserRegistry _pauserRegistry,
+        address initialOwner,
+        address _aggregator,
+        address _generator,
+        address _poolImplementation
+    ) public initializer {
         _initializePauser(_pauserRegistry, UNPAUSE_ALL);
         _transferOwnership(initialOwner);
         _setAggregator(_aggregator);
         _setGenerator(_generator);
+        poolImplementation = _poolImplementation;
     }
 
     function setGenerator(address newGenerator) external onlyOwner {
@@ -285,10 +298,40 @@ contract IncredibleSquaringTaskManager is
         emit TaskChallengedSuccessfully(referenceTaskIndex, msg.sender);
     }
 
+    // TODO: paying the value forward into the pool
+    //  does not seem to be working -- for now just gonna
+    //  not allow users to initialize the pool with value
+    //  through the frontend
+    function createPool(bytes32 hash) external payable returns (address poolAddress) {
+        // Check if hash is already used
+        require(!usedHashes[hash], "Hash already used");
+
+        poolAddress = _create(hash, msg.value);
+
+        // Track the new pool and hash
+        pools.push(poolAddress);
+        isPool[poolAddress] = true;
+        usedHashes[hash] = true;
+
+        emit PoolCreated(poolAddress, hash, msg.value);
+    }
+
+    function _create(bytes32 hash, uint256 value) internal returns (address poolAddress) {
+        bytes32 salt = hash;
+
+        poolAddress = LibClone.cloneDeterministic(poolImplementation, salt);
+        IRewardPool(payable(poolAddress)).initialize{value: value}(hash);
+    }
+
     function getTaskResponseWindowBlock() external view returns (uint32) {
         return TASK_RESPONSE_WINDOW_BLOCK;
     }
 
+    // Add function to get all pools
+    function getAllPools() external view returns (address[] memory) {
+        return pools;
+    }
+    
     function getTaskResponse(uint32 taskIndex) external view returns (TaskResponse memory taskResponse) {
         bytes32 taskResponseBytes = allTaskResponses[taskIndex];
         require(taskResponseBytes != bytes32(0), "Task response does not exist");
