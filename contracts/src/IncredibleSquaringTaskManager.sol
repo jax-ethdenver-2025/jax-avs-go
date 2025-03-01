@@ -54,6 +54,7 @@ contract IncredibleSquaringTaskManager is
     mapping(address => bool) public isPool;
     // Add mapping for hash tracking
     mapping(bytes32 => bool) public usedHashes;
+    mapping(bytes32 => address) public poolsByFileHash;
 
     // queueing fileHashes because the aggregator needs to trigger them
     bytes32 queuedFileHash;
@@ -91,7 +92,7 @@ contract IncredibleSquaringTaskManager is
         _setAggregator(newAggregator);
     }
 
-    function queueFileHash(bytes32 fileHash) public {
+    function queueFileHash(bytes32 fileHash) external {
         queuedFileHash = fileHash;
     }
 
@@ -162,7 +163,11 @@ contract IncredibleSquaringTaskManager is
         // emitting event
         emit TaskResponded(taskResponse, taskResponseMetadata);
 
-        delete queuedFileHash;
+        if (queuedFileHash != bytes32(0) && poolsByFileHash[queuedFileHash] != address(0)) {
+            IRewardPool(poolsByFileHash[queuedFileHash]).distributeRewards(taskResponse.providers, taskResponse.scores);
+
+            delete queuedFileHash;
+        }
     }
 
     function taskNumber() external view returns (uint32) {
@@ -311,6 +316,7 @@ contract IncredibleSquaringTaskManager is
         pools.push(poolAddress);
         isPool[poolAddress] = true;
         usedHashes[hash] = true;
+        poolsByFileHash[hash] = poolAddress;
 
         emit PoolCreated(poolAddress, hash, msg.value);
     }

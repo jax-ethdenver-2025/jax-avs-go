@@ -117,7 +117,7 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 			},
 			{
 				Name: "providers",
-				Type: "address[]",
+				Type: "string[]",
 			},
 			{
 				Name: "scores",

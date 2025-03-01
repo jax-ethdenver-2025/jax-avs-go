@@ -20,7 +20,7 @@ func AbiEncodeTaskResponse(h *cstaskmanager.IIncredibleSquaringTaskManagerTaskRe
 		},
 		{
 			Name: "providers",
-			Type: "address[]",
+			Type: "string[]",
 		},
 		{
 			Name: "scores",

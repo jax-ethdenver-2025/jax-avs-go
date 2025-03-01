@@ -305,6 +305,9 @@ func (o *Operator) Start(ctx context.Context) error {
 		case newTaskCreatedLog := <-o.newTaskCreatedChan:
 			o.metrics.IncNumTasksReceived()
 			taskResponse := o.ProcessNewTaskCreatedLog(newTaskCreatedLog)
+			if taskResponse == nil {
+				continue
+			}
 			signedTaskResponse, err := o.SignTaskResponse(taskResponse)
 			if err != nil {
 				continue
@@ -321,17 +324,7 @@ type QueryLocationsResponse struct {
 	Message string           `json:"message"`
 }
 
-// fetchAndTransformScores calls the /api/v0/query/<fileHash> endpoint,
-// decodes the response, and transforms it into the desired task response type.
-// In case of any network error or processing failure, it returns an empty taskResponse.
-func fetchAndTransformScores(fileHash [32]byte, taskIndex uint32) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
-	// Prepare an empty task response.
-	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-		ReferenceTaskIndex: taskIndex,
-		Providers:          make([]common.Address, 0),
-		Scores:             make([]*big.Int, 0),
-	}
-
+func fetchAndTransformScores(fileHash [32]byte, taskIndex uint32) (*cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse, error) {
 	// Convert fileHash ([32]byte) to its hex string representation.
 	hexFileHash := hex.EncodeToString(fileHash[:])
 
@@ -346,20 +339,20 @@ func fetchAndTransformScores(fileHash [32]byte, taskIndex uint32) *cstaskmanager
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("failed to fetch API: %v", err)
-		return taskResponse
+		return nil, fmt.Errorf("failed to fetch API: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("unexpected status code: %s", resp.Status)
-		return taskResponse
+		return nil, fmt.Errorf("unexpected status code: %s", resp.Status)
 	}
 
 	// Read and decode the response body.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("failed to read response: %v", err)
-		return taskResponse
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	log.Printf("Response body: %s", string(body))
@@ -367,37 +360,48 @@ func fetchAndTransformScores(fileHash [32]byte, taskIndex uint32) *cstaskmanager
 	var queryResp QueryLocationsResponse
 	if err := json.Unmarshal(body, &queryResp); err != nil {
 		log.Printf("failed to decode JSON: %v", err)
-		return taskResponse
+		return nil, fmt.Errorf("failed to decode JSON: %w", err)
 	}
 
-	// Iterate over each node tuple and convert the data.
-	for _, node := range queryResp.Nodes {
+	// Check if Nodes is empty
+	if len(queryResp.Nodes) == 0 {
+		log.Printf("empty nodes array in response")
+		return nil, fmt.Errorf("empty nodes array in response")
+	}
+
+	// Preallocate the slices to avoid multiple allocations.
+	providers := make([]string, len(queryResp.Nodes))
+	scores := make([]*big.Int, len(queryResp.Nodes))
+
+	// Populate the slices
+	for i, node := range queryResp.Nodes {
 		// Extract the nodeId, expected to be a 32-byte hex string.
 		nodeId, ok := node[0].(string)
 		if !ok {
 			log.Printf("unexpected nodeId type: %v", node[0])
-			continue
+			return nil, fmt.Errorf("unexpected nodeId type: %v", node[0])
 		}
 
 		// Extract the score, expected to be a float64.
 		scoreFloat, ok := node[1].(float64)
 		if !ok {
 			log.Printf("unexpected score type: %v", node[1])
-			continue
+			return nil, fmt.Errorf("unexpected score type: %v", node[1])
 		}
 
-		// Convert the nodeId to a common.Address.
-		provider := common.HexToAddress(nodeId)
-
 		// Convert the float64 score to a *big.Int using basis points.
-		scoreInt := big.NewInt(int64(scoreFloat * 10000))
-
-		// Append the converted values.
-		taskResponse.Providers = append(taskResponse.Providers, provider)
-		taskResponse.Scores = append(taskResponse.Scores, scoreInt)
+		scores[i] = big.NewInt(int64(scoreFloat * 10000))
+		providers[i] = nodeId
 	}
 
-	return taskResponse
+	// Construct the task response with the preallocated slices.
+	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
+		ReferenceTaskIndex: taskIndex,
+		Providers:          providers[:],
+		Scores:             scores,
+	}
+
+	return taskResponse, nil
 }
 
 // Takes a NewTaskCreatedLog struct as input and returns a TaskResponseHeader struct.
@@ -412,10 +416,14 @@ func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.Con
 		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
 
-	taskResponse := fetchAndTransformScores(newTaskCreatedLog.Task.FileHash, newTaskCreatedLog.TaskIndex)
+	taskResponse, err := fetchAndTransformScores(newTaskCreatedLog.Task.FileHash, newTaskCreatedLog.TaskIndex)
 
 	// Use taskResp as needed.
 	fmt.Printf("Transformed Task Response: %+v\n", taskResponse)
+
+	if err != nil {
+		return nil
+	}
 
 	return taskResponse
 }

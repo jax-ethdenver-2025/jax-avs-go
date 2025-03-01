@@ -251,7 +251,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 incredibleSquaringCommunityMultisig,
                 AGGREGATOR_ADDR,
                 TASK_GENERATOR_ADDR,
-                0xbF2B4973D67a81480AD042936845c655188a0e3d // RewardPool address
+                0xA42C66E5BC85F7B2873bE8D2E910f34e24a8A09a // RewardPool address
             )
         );
 

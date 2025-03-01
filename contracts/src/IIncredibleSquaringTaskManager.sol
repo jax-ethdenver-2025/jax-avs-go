@@ -40,7 +40,7 @@ interface IIncredibleSquaringTaskManager {
     struct TaskResponse {
         // Can be obtained by the operator from the event NewTaskCreated.
         uint32 referenceTaskIndex;
-        address[] providers;
+        string[] providers;
         uint256[] scores;
     }
 
