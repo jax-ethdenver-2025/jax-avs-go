@@ -19,6 +19,8 @@ interface IIncredibleSquaringTaskManager {
 
     event GeneratorUpdated(address indexed oldGenerator, address indexed newGenerator);
 
+    event PoolCreated(address indexed poolAddress, bytes32 hash, uint256 balance);
+
     // STRUCTS
     struct Task {
         bytes32 fileHash;
